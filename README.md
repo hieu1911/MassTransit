@@ -127,6 +127,7 @@ Logo Design by _The Agile Badger_
 [Marten.nuget]: https://www.nuget.org/packages/MassTransit.Marten
 [MongoDb.nuget]: https://www.nuget.org/packages/MassTransit.MongoDb
 [NHibernate.nuget]: https://www.nuget.org/packages/MassTransit.NHibernate
+[NHibernate.outbox.readme]: ./src/Persistence/MassTransit.NHibernateIntegration/README.md
 [Redis.nuget]: https://www.nuget.org/packages/MassTransit.Redis
 
 [Hangfire.nuget]: https://www.nuget.org/packages/MassTransit.Hangfire
