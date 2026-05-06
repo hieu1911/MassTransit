@@ -46,7 +46,7 @@ MassTransit NuGet Packages
 | [MassTransit.EntityFramework][EF.nuget]                         |          |      2.1      |     4.7.2      |     
 | [MassTransit.Marten][Marten.nuget]                              | 8.0, 9.0 |               |                |
 | [MassTransit.MongoDb][MongoDb.nuget]                            | 8.0, 9.0 |      2.1      |     4.7.2      |
-| [MassTransit.NHibernate][NHibernate.nuget]                      | 8.0, 9.0 |      2.0      |     4.7.2      |
+| [MassTransit.NHibernate][NHibernate.nuget] ([Outbox notes][NHibernate.outbox.readme]) | 8.0, 9.0 |      2.0      |     4.7.2      |
 | [MassTransit.Redis][Redis.nuget]                                | 8.0, 9.0 |      2.0      |     4.7.2      |
 | **Scheduling**                                                  |          |               |                |
 | [MassTransit.Hangfire][Hangfire.nuget]                          | 8.0, 9.0 |      2.0      |     4.7.2      |
@@ -127,6 +127,7 @@ Logo Design by _The Agile Badger_
 [Marten.nuget]: https://www.nuget.org/packages/MassTransit.Marten
 [MongoDb.nuget]: https://www.nuget.org/packages/MassTransit.MongoDb
 [NHibernate.nuget]: https://www.nuget.org/packages/MassTransit.NHibernate
+[NHibernate.outbox.readme]: ./src/Persistence/MassTransit.NHibernateIntegration/README.md
 [Redis.nuget]: https://www.nuget.org/packages/MassTransit.Redis
 
 [Hangfire.nuget]: https://www.nuget.org/packages/MassTransit.Hangfire
