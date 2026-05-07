@@ -137,7 +137,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
         static Task<InboxState?> LoadAndLockInboxState(ISession session, Guid messageId, Guid consumerId, CancellationToken cancellationToken)
         {
             // LockMode.Upgrade forces the row to be locked during the transaction for duplicate detection + in-order outbox delivery.
-            return session.CreateQuery("from InboxState where MessageId = :messageId and ConsumerId = :consumerId")
+            return session.CreateQuery("from InboxState this where MessageId = :messageId and ConsumerId = :consumerId")
                 .SetParameter("messageId", messageId)
                 .SetParameter("consumerId", consumerId)
                 .SetLockMode("this", LockMode.Upgrade)

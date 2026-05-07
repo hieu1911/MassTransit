@@ -28,12 +28,15 @@ namespace MassTransit.NHibernateIntegration
 
         public int GetHashCode(object x)
         {
-            return x.GetHashCode();
+            return x == null ? 0 : x.GetHashCode();
         }
 
         public object NullSafeGet(DbDataReader rs, string[] names, ISessionImplementor session, object owner)
         {
             var value = (string)NHibernateUtil.String.NullSafeGet(rs, names, session);
+
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
 
             return new Uri(value);
         }

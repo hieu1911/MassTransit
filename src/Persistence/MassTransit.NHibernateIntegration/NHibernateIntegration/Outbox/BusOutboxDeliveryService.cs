@@ -1,3 +1,4 @@
+#nullable enable
 namespace MassTransit.NHibernateIntegration.Outbox
 {
     using System;
@@ -13,6 +14,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
     using Microsoft.Extensions.Options;
     using Middleware.Outbox;
     using NHibernate;
+    using NHibernate.Exceptions;
     using RetryPolicies;
     using Serialization;
 
@@ -71,54 +73,74 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 var sessionFactory = scope.ServiceProvider.GetRequiredService<ISessionFactory>();
                 var totalDelivered = 0;
 
-                while (totalDelivered < resultLimit && !cancellationToken.IsCancellationRequested)
+                using (var readSession = sessionFactory.OpenSession())
                 {
-                    using var session = sessionFactory.OpenSession();
-                    using var transaction = session.BeginTransaction();
+                    // Read candidate outbox IDs without lock first to avoid starvation on a single locked oldest row.
+                    IList<Guid> outboxIds = await readSession.CreateQuery("select this.OutboxId from OutboxState this where this.Delivered is null order by this.Created")
+                        .SetMaxResults(resultLimit)
+                        .ListAsync<Guid>(cancellationToken)
+                        .ConfigureAwait(false);
 
-                    using var timeoutToken = new CancellationTokenSource(_options.QueryTimeout);
-                    using var queryToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutToken.Token);
+                    if (outboxIds.Count == 0)
+                        return 0;
 
-                    try
+                    foreach (var outboxId in outboxIds)
                     {
-                        var outboxState = await session.CreateQuery("from OutboxState order by Created")
-                            .SetLockMode("this", LockMode.Upgrade)
-                            .SetMaxResults(1)
-                            .UniqueResultAsync<OutboxState>(queryToken.Token)
-                            .ConfigureAwait(false);
-
-                        if (outboxState == null)
-                        {
-                            await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+                        if (totalDelivered >= resultLimit || cancellationToken.IsCancellationRequested)
                             break;
-                        }
 
-                        outboxState.LockId = NewId.NextGuid();
-                        await session.UpdateAsync(outboxState, queryToken.Token).ConfigureAwait(false);
+                        using var session = sessionFactory.OpenSession();
+                        using var transaction = session.BeginTransaction();
 
-                        int deliveredCount;
-                        if (outboxState.Delivered.HasValue)
+                        try
                         {
-                            await RemoveOutbox(session, outboxState, queryToken.Token).ConfigureAwait(false);
-                            deliveredCount = 0;
+                            OutboxState? outboxState;
+                            try
+                            {
+                                outboxState = await session.CreateQuery("from OutboxState this where this.OutboxId = :outboxId")
+                                    .SetParameter("outboxId", outboxId)
+                                    .SetLockMode("this", LockMode.UpgradeNoWait)
+                                    .UniqueResultAsync<OutboxState>(cancellationToken)
+                                    .ConfigureAwait(false);
+                            }
+                            catch (GenericADOException)
+                            {
+                                // Another transaction holds lock for this outbox row, skip and continue with next id.
+                                await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+                                continue;
+                            }
+
+                            if (outboxState == null)
+                            {
+                                await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+                                continue;
+                            }
+
+                            outboxState.LockId = NewId.NextGuid();
+                            await session.UpdateAsync(outboxState, cancellationToken).ConfigureAwait(false);
+
+                            int deliveredCount;
+                            if (outboxState.Delivered.HasValue)
+                            {
+                                await RemoveOutbox(session, outboxState, cancellationToken).ConfigureAwait(false);
+                                deliveredCount = 0;
+                            }
+                            else
+                                deliveredCount = await DeliverOutboxMessages(session, outboxState, cancellationToken).ConfigureAwait(false);
+
+                            await session.FlushAsync(cancellationToken).ConfigureAwait(false);
+                            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+                            if (deliveredCount > 0)
+                                totalDelivered += deliveredCount;
                         }
-                        else
-                            deliveredCount = await DeliverOutboxMessages(session, outboxState, queryToken.Token).ConfigureAwait(false);
+                        catch (Exception)
+                        {
+                            if (transaction.IsActive)
+                                await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
 
-                        await session.FlushAsync(queryToken.Token).ConfigureAwait(false);
-                        await transaction.CommitAsync(queryToken.Token).ConfigureAwait(false);
-
-                        if (deliveredCount <= 0)
-                            continue;
-
-                        totalDelivered += deliveredCount;
-                    }
-                    catch (Exception)
-                    {
-                        if (transaction.IsActive)
-                            await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
-
-                        throw;
+                            throw;
+                        }
                     }
                 }
 
