@@ -20,11 +20,12 @@ namespace MassTransit.NHibernateIntegration.Outbox
     {
         readonly IsolationLevel _isolationLevel;
         readonly IServiceProvider _provider;
-        readonly ISessionFactory _sessionFactory;
+        readonly INHibernateTenantSessionFactoryProvider _tenantSessionFactoryProvider;
 
-        public NHibernateOutboxContextFactory(ISessionFactory sessionFactory, IServiceProvider provider, IOptions<NHibernateOutboxOptions> options)
+        public NHibernateOutboxContextFactory(INHibernateTenantSessionFactoryProvider tenantSessionFactoryProvider, IServiceProvider provider,
+            IOptions<NHibernateOutboxOptions> options)
         {
-            _sessionFactory = sessionFactory;
+            _tenantSessionFactoryProvider = tenantSessionFactoryProvider;
             _provider = provider;
             _isolationLevel = options.Value.IsolationLevel;
         }
@@ -40,7 +41,8 @@ namespace MassTransit.NHibernateIntegration.Outbox
 
                 var timer = Stopwatch.StartNew();
 
-                using var session = _sessionFactory.OpenSession();
+                var sessionFactory = _tenantSessionFactoryProvider.GetSessionFactory(_tenantSessionFactoryProvider.PartitionKey);
+                using var session = sessionFactory.OpenSession();
                 using var transaction = session.BeginTransaction(_isolationLevel);
 
                 try

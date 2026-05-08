@@ -3,8 +3,6 @@ namespace MassTransit.NHibernateIntegration.Outbox
 {
     using System;
     using DependencyInjection;
-    using Middleware.Outbox;
-    using NHibernate;
 
 
     public class NHibernateScopedBusContextProvider<TBus> :
@@ -12,7 +10,8 @@ namespace MassTransit.NHibernateIntegration.Outbox
         IDisposable
         where TBus : class, IBus
     {
-        public NHibernateScopedBusContextProvider(TBus bus, ISessionFactory sessionFactory, IBusOutboxNotification notification,
+        public NHibernateScopedBusContextProvider(TBus bus, INHibernateTenantSessionFactoryProvider tenantSessionFactoryProvider,
+            ITenantBusOutboxNotification notification,
             Bind<TBus, IClientFactory> clientFactory, Bind<TBus, IScopedConsumeContextProvider> consumeContextProvider,
             IScopedConsumeContextProvider globalConsumeContextProvider, IServiceProvider provider)
         {
@@ -20,11 +19,11 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 Context = new ConsumeContextScopedBusContext(consumeContextProvider.Value.GetContext(), clientFactory.Value);
             else if (globalConsumeContextProvider.HasContext)
             {
-                Context = new NHibernateConsumeContextScopedBusContext<TBus>(bus, sessionFactory, notification, clientFactory.Value, provider,
+                Context = new NHibernateConsumeContextScopedBusContext<TBus>(bus, tenantSessionFactoryProvider, notification, clientFactory.Value, provider,
                     globalConsumeContextProvider.GetContext());
             }
             else
-                Context = new NHibernateScopedBusContext<TBus>(bus, sessionFactory, notification, clientFactory.Value, provider);
+                Context = new NHibernateScopedBusContext<TBus>(bus, tenantSessionFactoryProvider, notification, clientFactory.Value, provider);
         }
 
         public void Dispose()

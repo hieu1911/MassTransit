@@ -20,9 +20,9 @@ namespace MassTransit.NHibernateIntegration.Outbox
     {
         readonly TBus _bus;
         readonly IClientFactory _clientFactory;
-        readonly IBusOutboxNotification _notification;
+        readonly ITenantBusOutboxNotification _notification;
         readonly IServiceProvider _provider;
-        readonly ISessionFactory _sessionFactory;
+        readonly INHibernateTenantSessionFactoryProvider _tenantSessionFactoryProvider;
 
         bool _ownsSession;
         bool _ownsTransaction;
@@ -34,11 +34,12 @@ namespace MassTransit.NHibernateIntegration.Outbox
         ISession? _session;
         ITransaction? _transaction;
 
-        public NHibernateScopedBusContext(TBus bus, ISessionFactory sessionFactory, IBusOutboxNotification notification, IClientFactory clientFactory,
+        public NHibernateScopedBusContext(TBus bus, INHibernateTenantSessionFactoryProvider tenantSessionFactoryProvider,
+            ITenantBusOutboxNotification notification, IClientFactory clientFactory,
             IServiceProvider provider)
         {
             _bus = bus;
-            _sessionFactory = sessionFactory;
+            _tenantSessionFactoryProvider = tenantSessionFactoryProvider;
             _notification = notification;
             _clientFactory = clientFactory;
             _provider = provider;
@@ -52,7 +53,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
                     _transaction.Commit();
 
                 if (_outboxStateCreated && (_transaction?.WasCommitted ?? false))
-                    _notification.Delivered();
+                    _notification.Delivered(_tenantSessionFactoryProvider.PartitionKey);
             }
             finally
             {
@@ -91,10 +92,11 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 return;
 
             if (_transaction?.WasCommitted ?? false)
-                _notification.Delivered();
+                _notification.Delivered(_tenantSessionFactoryProvider.PartitionKey);
 
             var scopedSession = _provider.GetService(typeof(ISession)) as ISession;
-            _session = scopedSession ?? _sessionFactory.OpenSession();
+            var sessionFactory = _tenantSessionFactoryProvider.GetSessionFactory(_tenantSessionFactoryProvider.PartitionKey);
+            _session = scopedSession ?? sessionFactory.OpenSession();
             _ownsSession = scopedSession == null;
 
             _transaction = _session.GetCurrentTransaction();

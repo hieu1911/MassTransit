@@ -12,7 +12,6 @@ namespace MassTransit.NHibernateIntegration.Outbox
     using Microsoft.Extensions.Logging;
     using Middleware;
     using Microsoft.Extensions.Options;
-    using Middleware.Outbox;
     using NHibernate;
     using NHibernate.Exceptions;
     using RetryPolicies;
@@ -24,16 +23,19 @@ namespace MassTransit.NHibernateIntegration.Outbox
     {
         readonly IBusControl _busControl;
         readonly ILogger _logger;
-        readonly IBusOutboxNotification _notification;
+        readonly ITenantBusOutboxNotification _notification;
+        readonly INHibernateTenantDatabaseFactory _tenantDatabaseFactory;
         readonly OutboxDeliveryServiceOptions _options;
         readonly IServiceProvider _provider;
         readonly IRetryPolicy _retryPolicy;
 
         public BusOutboxDeliveryService(IBusControl busControl, IOptions<OutboxDeliveryServiceOptions> options,
-            IBusOutboxNotification notification, ILogger<BusOutboxDeliveryService> logger, IServiceProvider provider)
+            ITenantBusOutboxNotification notification, INHibernateTenantDatabaseFactory tenantDatabaseFactory,
+            ILogger<BusOutboxDeliveryService> logger, IServiceProvider provider)
         {
             _busControl = busControl;
             _notification = notification;
+            _tenantDatabaseFactory = tenantDatabaseFactory;
             _provider = provider;
             _logger = logger;
             _options = options.Value;
@@ -43,34 +45,52 @@ namespace MassTransit.NHibernateIntegration.Outbox
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            await _busControl.WaitForHealthStatus(BusHealthStatus.Healthy, stoppingToken).ConfigureAwait(false);
+
+            var connectionStrings = _tenantDatabaseFactory.GetAllConnectionStrings();
+            if (connectionStrings == null || connectionStrings.Count == 0)
+            {
+                connectionStrings = new[] { "default" };
+            }
+
+            var tasks = connectionStrings.Select(connectionString => TenantWorker(connectionString, stoppingToken))
+                .ToArray();
+
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        async Task TenantWorker(string partitionKey, CancellationToken stoppingToken)
+        {
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    await _busControl.WaitForHealthStatus(BusHealthStatus.Healthy, stoppingToken).ConfigureAwait(false);
+                    var count = await _retryPolicy.Retry(() => DeliverBatch(partitionKey, _options.QueryMessageLimit, stoppingToken), stoppingToken)
+                        .ConfigureAwait(false);
 
-                    var count = await _retryPolicy.Retry(() => DeliverBatch(_options.QueryMessageLimit, stoppingToken), stoppingToken).ConfigureAwait(false);
                     if (count > 0)
                         continue;
 
-                    await _notification.WaitForDelivery(stoppingToken).ConfigureAwait(false);
+                    await _notification.WaitForDelivery(partitionKey, stoppingToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
+                    break;
                 }
                 catch (Exception exception)
                 {
-                    _logger.LogError(exception, "ProcessOutboxes faulted");
+                    _logger.LogError(exception, "ProcessOutboxes faulted for partition {PartitionKey}", partitionKey);
                 }
             }
         }
 
-        async Task<int> DeliverBatch(int resultLimit, CancellationToken cancellationToken)
+        async Task<int> DeliverBatch(string partitionKey, int resultLimit, CancellationToken cancellationToken)
         {
             var scope = _provider.CreateAsyncScope();
             try
             {
-                var sessionFactory = scope.ServiceProvider.GetRequiredService<ISessionFactory>();
+                var tenantSessionFactoryProvider = scope.ServiceProvider.GetRequiredService<INHibernateTenantSessionFactoryProvider>();
+                var sessionFactory = tenantSessionFactoryProvider.GetSessionFactory(partitionKey);
                 var totalDelivered = 0;
 
                 using (var readSession = sessionFactory.OpenSession())
