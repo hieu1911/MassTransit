@@ -4,7 +4,6 @@ namespace MassTransit.Configuration
     using System;
     using DependencyInjection;
     using Microsoft.Extensions.DependencyInjection;
-    using Middleware.Outbox;
     using NHibernateIntegration;
     using NHibernateIntegration.Outbox;
 
@@ -38,7 +37,9 @@ namespace MassTransit.Configuration
             configure?.Invoke(this);
 
             _configurator.ReplaceScoped<IScopedBusContextProvider<IBus>, NHibernateScopedBusContextProvider<IBus>>();
-            _configurator.AddSingleton<IBusOutboxNotification, BusOutboxNotification>();
+            _configurator.AddScoped<INHibernateTenantSessionFactoryProvider, DefaultNHibernateTenantSessionFactoryProvider>();
+            _configurator.AddSingleton<INHibernateTenantDatabaseFactory, DefaultNHibernateTenantDatabaseFactory>();
+            _configurator.AddSingleton<ITenantBusOutboxNotification, TenantBusOutboxNotification>();
 
             if (_registerOutboxDeliveryService)
             {

@@ -4,7 +4,6 @@ namespace MassTransit.NHibernateIntegration.Outbox;
 using System;
 using Clients;
 using DependencyInjection;
-using Middleware.Outbox;
 
 
 public class NHibernateConsumeContextScopedBusContext<TBus> :
@@ -16,9 +15,10 @@ public class NHibernateConsumeContextScopedBusContext<TBus> :
     readonly ConsumeContext _consumeContext;
     readonly IServiceProvider _provider;
 
-    public NHibernateConsumeContextScopedBusContext(TBus bus, NHibernate.ISessionFactory sessionFactory, IBusOutboxNotification notification,
+    public NHibernateConsumeContextScopedBusContext(TBus bus, INHibernateTenantSessionFactoryProvider tenantSessionFactoryProvider,
+        ITenantBusOutboxNotification notification,
         IClientFactory clientFactory, IServiceProvider provider, ConsumeContext consumeContext)
-        : base(bus, sessionFactory, notification, clientFactory, provider)
+        : base(bus, tenantSessionFactoryProvider, notification, clientFactory, provider)
     {
         _bus = bus;
         _clientFactory = clientFactory;
