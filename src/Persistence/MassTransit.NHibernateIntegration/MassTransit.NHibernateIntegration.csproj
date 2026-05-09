@@ -21,6 +21,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="NHibernateIntegration\Outbox\InboxState.hbm.xml" />
+    <None Remove="NHibernateIntegration\Outbox\OutboxMessage.hbm.xml" />
+    <None Remove="NHibernateIntegration\Outbox\OutboxState.hbm.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="NHibernateIntegration\Outbox\InboxState.hbm.xml" />
+    <EmbeddedResource Include="NHibernateIntegration\Outbox\OutboxMessage.hbm.xml" />
+    <EmbeddedResource Include="NHibernateIntegration\Outbox\OutboxState.hbm.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Iesi.Collections" />
     <PackageReference Include="NHibernate" />
     <ProjectReference Include="..\..\MassTransit\MassTransit.csproj" />

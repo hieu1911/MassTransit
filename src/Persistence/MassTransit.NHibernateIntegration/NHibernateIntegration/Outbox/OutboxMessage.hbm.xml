@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<hibernate-mapping
+    xmlns="urn:nhibernate-mapping-2.2"
+    assembly="MassTransit.NHibernateIntegration"
+    namespace="MassTransit.NHibernateIntegration.Outbox">
+
+  <class name="OutboxMessage"
+         table="OutboxMessage">
+
+    <id name="SequenceNumber">
+      <generator class="identity"/>
+    </id>
+
+    <version name="Version"
+             column="Version"
+             unsaved-value="0" />
+
+    <property name="EnqueueTime" />
+    <property name="SentTime" />
+
+    <property name="Headers" type="StringClob" />
+    <property name="Properties" type="StringClob" />
+
+    <property name="InboxMessageId"
+              column="InboxMessageId" />
+
+    <property name="InboxConsumerId"
+              column="InboxConsumerId" />
+
+    <property name="OutboxId"
+              column="OutboxId" />
+
+    <property name="MessageId" />
+
+    <property name="ContentType"
+              length="256" />
+
+    <property name="MessageType"
+              type="StringClob" />
+
+    <property name="Body"
+              type="StringClob" />
+
+    <property name="ConversationId" />
+    <property name="CorrelationId" />
+    <property name="InitiatorId" />
+    <property name="RequestId" />
+
+    <property name="SourceAddress"
+              type="MassTransit.NHibernateIntegration.UriUserType, MassTransit.NHibernateIntegration" />
+
+    <property name="DestinationAddress"
+              type="MassTransit.NHibernateIntegration.UriUserType, MassTransit.NHibernateIntegration" />
+
+    <property name="ResponseAddress"
+              type="MassTransit.NHibernateIntegration.UriUserType, MassTransit.NHibernateIntegration" />
+
+    <property name="FaultAddress"
+              type="MassTransit.NHibernateIntegration.UriUserType, MassTransit.NHibernateIntegration" />
+
+    <property name="ExpirationTime" />
+
+  </class>
+
+</hibernate-mapping>
