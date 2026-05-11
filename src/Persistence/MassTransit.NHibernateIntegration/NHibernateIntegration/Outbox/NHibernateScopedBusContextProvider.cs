@@ -12,16 +12,10 @@ namespace MassTransit.NHibernateIntegration.Outbox
     {
         public NHibernateScopedBusContextProvider(TBus bus, INHibernateTenantSessionFactoryProvider tenantSessionFactoryProvider,
             ITenantBusOutboxNotification notification,
-            Bind<TBus, IClientFactory> clientFactory, Bind<TBus, IScopedConsumeContextProvider> consumeContextProvider,
-            IScopedConsumeContextProvider globalConsumeContextProvider, IServiceProvider provider)
+            Bind<TBus, IClientFactory> clientFactory, ScopedConsumeContextProvider consumeContextProvider, IServiceProvider provider)
         {
-            if (consumeContextProvider.Value.HasContext)
-                Context = new ConsumeContextScopedBusContext(consumeContextProvider.Value.GetContext(), clientFactory.Value);
-            else if (globalConsumeContextProvider.HasContext)
-            {
-                Context = new NHibernateConsumeContextScopedBusContext<TBus>(bus, tenantSessionFactoryProvider, notification, clientFactory.Value, provider,
-                    globalConsumeContextProvider.GetContext());
-            }
+            if (consumeContextProvider.HasContext)
+                Context = new ConsumeContextScopedBusContext(consumeContextProvider.GetContext(), clientFactory.Value);
             else
                 Context = new NHibernateScopedBusContext<TBus>(bus, tenantSessionFactoryProvider, notification, clientFactory.Value, provider);
         }

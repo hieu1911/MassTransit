@@ -37,8 +37,8 @@ namespace MassTransit.Configuration
             configure?.Invoke(this);
 
             _configurator.ReplaceScoped<IScopedBusContextProvider<IBus>, NHibernateScopedBusContextProvider<IBus>>();
-            _configurator.AddScoped<INHibernateTenantSessionFactoryProvider, DefaultNHibernateTenantSessionFactoryProvider>();
-            _configurator.AddSingleton<INHibernateTenantDatabaseFactory, DefaultNHibernateTenantDatabaseFactory>();
+            //_configurator.AddScoped<INHibernateTenantSessionFactoryProvider, DefaultNHibernateTenantSessionFactoryProvider>();
+            //_configurator.AddSingleton<INHibernateTenantDatabaseFactory, DefaultNHibernateTenantDatabaseFactory>();
             _configurator.AddSingleton<ITenantBusOutboxNotification, TenantBusOutboxNotification>();
 
             if (_registerOutboxDeliveryService)

@@ -50,7 +50,7 @@ namespace MassTransit
             if (provider == null)
                 throw new ArgumentNullException(nameof(provider));
 
-            var observer = new OutboxConsumePipeSpecificationObserver<ISessionFactory>(configurator, provider, LegacySetScopedConsumeContext.Instance);
+            var observer = new OutboxConsumePipeSpecificationObserver<ISessionFactory>(configurator, provider);
 
             configure?.Invoke(observer);
 

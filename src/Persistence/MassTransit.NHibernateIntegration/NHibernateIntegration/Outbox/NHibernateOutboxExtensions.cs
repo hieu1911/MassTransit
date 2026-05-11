@@ -5,6 +5,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using Context;
+    using Metadata;
     using NHibernate;
 
 
@@ -34,7 +35,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 FaultAddress = context.FaultAddress,
                 SentTime = context.SentTime ?? now,
                 ContentType = context.ContentType?.ToString() ?? context.Serialization.DefaultContentType.ToString(),
-                MessageType = string.Join(";", context.SupportedMessageTypes),
+                MessageType = string.Join(";", TypeMetadataCache<T>.MessageTypeNames),
                 Body = body.GetString(),
                 InboxMessageId = inboxMessageId,
                 InboxConsumerId = inboxConsumerId,
