@@ -162,3 +162,23 @@ Trong ví dụ này:
 - Nếu dùng hash làm partition key, hãy vẫn cache `ISessionFactory` theo connection string gốc.
 - `ISessionFactory` là đối tượng nặng, cần cache/reuse thay vì build mới mỗi request.
 
+## Tích hợp với transaction service (quan trọng)
+
+Khi ứng dụng đã có `service.BeginTran()/CommitTran()/RolbackTran()` (ví dụ theo mô hình `InvoiceService`), để transactional outbox hoạt động đúng cần đảm bảo:
+
+- `Publish/Send` chạy trên **cùng `ISession` + cùng `ITransaction`** với service hiện tại.
+- Không tạo scope tạm để resolve `IPublishEndpoint` rồi dispose scope đó nếu scope có thể sở hữu `ISession` đang bind (dễ gây lỗi `Session is closed`).
+- Outbox chỉ mở session/transaction mới khi không có ambient session hiện hữu.
+
+### Hành vi mong muốn
+
+- `CommitTran` thành công -> ghi `OutboxState/OutboxMessage`, sau đó delivery service publish ra queue.
+- `RolbackTran` (hoặc exception trước commit) -> dữ liệu outbox rollback theo transaction, **không publish message**.
+
+### Checklist debug nhanh
+
+1. Sau khi gọi `Publish`, kiểm tra DB có bản ghi trong `OutboxState/OutboxMessage` chưa.
+2. Nếu không có bản ghi outbox: publish chưa đi qua bus outbox pipeline (hoặc lỗi publish bị nuốt).
+3. Nếu có outbox nhưng không ra queue: kiểm tra delivery worker/notification theo `PartitionKey`.
+4. Nếu gặp `Session is closed`: kiểm tra lại ownership/lifecycle của `ISession` trong scope publish.
+

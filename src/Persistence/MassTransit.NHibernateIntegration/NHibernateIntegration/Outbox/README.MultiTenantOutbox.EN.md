@@ -161,3 +161,23 @@ In this flow:
 - If you use a hash as `PartitionKey`, still cache `ISessionFactory` by the original connection string.
 - `ISessionFactory` is expensive; cache and reuse it instead of rebuilding per request.
 
+## Integration with Existing Transaction Services (Important)
+
+When the application already uses `service.BeginTran()/CommitTran()/RolbackTran()` (for example, an `InvoiceService` pattern), transactional outbox works correctly only if:
+
+- `Publish/Send` uses the **same `ISession` and the same `ITransaction`** as the current service transaction.
+- You do not create a temporary publish scope that can own and dispose the currently bound `ISession` (a common cause of `Session is closed`).
+- Outbox opens a new session/transaction only when no ambient session is available.
+
+### Expected Behavior
+
+- `CommitTran` succeeds -> `OutboxState/OutboxMessage` is persisted, then delivery service publishes to the queue.
+- `RolbackTran` (or exception before commit) -> outbox rows are rolled back with the transaction, so **no message is published**.
+
+### Quick Debug Checklist
+
+1. Right after `Publish`, check whether rows exist in `OutboxState/OutboxMessage`.
+2. If no outbox rows exist: publish did not go through bus outbox pipeline (or publish errors were swallowed).
+3. If outbox rows exist but nothing reaches the queue: verify delivery worker and `PartitionKey` notification flow.
+4. If `Session is closed` appears: re-check `ISession` ownership/lifecycle in the publish path.
+

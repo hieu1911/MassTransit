@@ -52,12 +52,13 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 if (_ownsTransaction && _transaction is { IsActive: true })
                     _transaction.Commit();
 
-                if (_outboxStateCreated && (_transaction?.WasCommitted ?? false))
+                if (_outboxStateCreated && ShouldNotifyDelivery())
                     _notification.Delivered(_tenantSessionFactoryProvider.PartitionKey);
             }
             finally
             {
-                _transaction?.Dispose();
+                if (_ownsTransaction)
+                    _transaction?.Dispose();
                 if (_ownsSession)
                     _session?.Dispose();
             }
@@ -94,10 +95,28 @@ namespace MassTransit.NHibernateIntegration.Outbox
             if (_transaction?.WasCommitted ?? false)
                 _notification.Delivered(_tenantSessionFactoryProvider.PartitionKey);
 
-            var scopedSession = _provider.GetService(typeof(ISession)) as ISession;
             var sessionFactory = _tenantSessionFactoryProvider.GetSessionFactory(_tenantSessionFactoryProvider.PartitionKey);
-            _session = scopedSession ?? sessionFactory.OpenSession();
-            _ownsSession = scopedSession == null;
+            ISession? ambientSession = null;
+            try
+            {
+                // Prefer NHibernate current session to avoid capturing an externally-owned ISession
+                // from DI scope that may dispose it after publish/send scope exits.
+                ambientSession = sessionFactory.GetCurrentSession();
+            }
+            catch (HibernateException)
+            {
+                // No current session is bound for this context.
+            }
+
+            if (ambientSession == null)
+            {
+                var scopedSession = _provider.GetService(typeof(ISession)) as ISession;
+                if (scopedSession?.IsOpen == true)
+                    ambientSession = scopedSession;
+            }
+
+            _session = ambientSession ?? sessionFactory.OpenSession();
+            _ownsSession = ambientSession == null;
 
             _transaction = _session.GetCurrentTransaction();
             if (_transaction == null || _transaction.IsActive == false)
@@ -126,6 +145,19 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 && _transaction != null
                 && _transaction.IsActive
                 && (_transaction.WasCommitted == false);
+        }
+
+        bool ShouldNotifyDelivery()
+        {
+            if (_outboxStateCreated == false)
+                return false;
+
+            // For ambient transactions, this scoped context can be disposed before the outer commit.
+            // Wake the delivery worker so it can poll again after commit (spurious wake-up is harmless).
+            if (_ownsTransaction == false)
+                return true;
+
+            return _transaction?.WasCommitted ?? false;
         }
 
         protected virtual ScopedClientFactory GetClientFactory()
