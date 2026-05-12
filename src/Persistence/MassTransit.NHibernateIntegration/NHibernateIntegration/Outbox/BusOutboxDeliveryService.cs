@@ -47,13 +47,13 @@ namespace MassTransit.NHibernateIntegration.Outbox
         {
             await _busControl.WaitForHealthStatus(BusHealthStatus.Healthy, stoppingToken).ConfigureAwait(false);
 
-            var connectionStrings = _tenantDatabaseFactory.GetAllConnectionStrings();
-            if (connectionStrings == null || connectionStrings.Count == 0)
+            var partitionKeys = _tenantDatabaseFactory.GetAllPartitionKey();
+            if (partitionKeys == null || partitionKeys.Count == 0)
             {
-                connectionStrings = new[] { "default" };
+                partitionKeys = new[] { "default" };
             }
 
-            var tasks = connectionStrings.Select(connectionString => TenantWorker(connectionString, stoppingToken))
+            var tasks = partitionKeys.Select(partitionKey => TenantWorker(partitionKey, stoppingToken))
                 .ToArray();
 
             await Task.WhenAll(tasks).ConfigureAwait(false);

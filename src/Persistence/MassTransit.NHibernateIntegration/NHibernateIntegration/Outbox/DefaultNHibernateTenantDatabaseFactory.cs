@@ -6,7 +6,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
     public class DefaultNHibernateTenantDatabaseFactory :
         INHibernateTenantDatabaseFactory
     {
-        public IReadOnlyCollection<string> GetAllConnectionStrings()
+        public IReadOnlyCollection<string> GetAllPartitionKey()
         {
             return new[] { "default" };
         }

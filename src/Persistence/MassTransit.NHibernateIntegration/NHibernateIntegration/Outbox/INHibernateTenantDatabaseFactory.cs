@@ -9,7 +9,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
     /// </summary>
     public interface INHibernateTenantDatabaseFactory
     {
-        IReadOnlyCollection<string> GetAllConnectionStrings();
+        IReadOnlyCollection<string> GetAllPartitionKey();
     }
 }
 
