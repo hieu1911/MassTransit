@@ -28,10 +28,11 @@ namespace MassTransit.NHibernateIntegration.Outbox
         readonly OutboxDeliveryServiceOptions _options;
         readonly IServiceProvider _provider;
         readonly IRetryPolicy _retryPolicy;
+        readonly bool _useMultitenantDatabases;
 
         public BusOutboxDeliveryService(IBusControl busControl, IOptions<OutboxDeliveryServiceOptions> options,
             ITenantBusOutboxNotification notification, INHibernateTenantDatabaseFactory tenantDatabaseFactory,
-            ILogger<BusOutboxDeliveryService> logger, IServiceProvider provider)
+            ILogger<BusOutboxDeliveryService> logger, IServiceProvider provider, IOptions<NHibernateOutboxOptions> nhibernateOutboxOptions)
         {
             _busControl = busControl;
             _notification = notification;
@@ -39,6 +40,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
             _provider = provider;
             _logger = logger;
             _options = options.Value;
+            _useMultitenantDatabases = nhibernateOutboxOptions.Value.UseMultitenantDatabases;
 
             _retryPolicy = Retry.Exponential(1000, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(3));
         }
@@ -47,11 +49,15 @@ namespace MassTransit.NHibernateIntegration.Outbox
         {
             await _busControl.WaitForHealthStatus(BusHealthStatus.Healthy, stoppingToken).ConfigureAwait(false);
 
-            var partitionKeys = _tenantDatabaseFactory.GetAllPartitionKey();
-            if (partitionKeys == null || partitionKeys.Count == 0)
+            IReadOnlyCollection<string> partitionKeys;
+            if (_useMultitenantDatabases)
             {
-                partitionKeys = new[] { "default" };
+                partitionKeys = _tenantDatabaseFactory.GetAllPartitionKey();
+                if (partitionKeys == null || partitionKeys.Count == 0)
+                    partitionKeys = new[] { "default" };
             }
+            else
+                partitionKeys = new[] { "default" };
 
             var tasks = partitionKeys.Select(partitionKey => TenantWorker(partitionKey, stoppingToken))
                 .ToArray();
@@ -90,7 +96,9 @@ namespace MassTransit.NHibernateIntegration.Outbox
             try
             {
                 var tenantSessionFactoryProvider = scope.ServiceProvider.GetRequiredService<INHibernateTenantSessionFactoryProvider>();
-                var sessionFactory = tenantSessionFactoryProvider.GetSessionFactory(partitionKey);
+                var sessionFactory = _useMultitenantDatabases
+                   ? tenantSessionFactoryProvider.GetSessionFactory(partitionKey)
+                   : tenantSessionFactoryProvider.GetSessionFactory();
                 var totalDelivered = 0;
 
                 using (var readSession = sessionFactory.OpenSession())

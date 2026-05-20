@@ -2,23 +2,39 @@
   <Import Project="../../../signing.props" />
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0</TargetFrameworks>
+    <Authors>Hieu Doan</Authors>
+    <Company>Softdreams</Company>
+    <Description>
+      NHibernate transactional outbox implementation integrated with MassTransit
+    </Description>
+    <Version>1.1.0</Version>
+    <PackageTags>
+      outbox;nhibernate;masstransit;event-driven
+    </PackageTags>
+    <PackageId>SDS.Outbox.NHibernate</PackageId>
+    <AssemblyName>SDS.Outbox.NHibernate</AssemblyName>
+    <RootNamespace>SDS.Outbox.NHibernate</RootNamespace>
+    <RepositoryUrl>
+      https://github.com/hieu1911/MassTransit/tree/transactional-outbox-nhibernate-v8
+    </RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(IsWindows)' == 'true' ">
     <TargetFrameworks>$(TargetFrameworks);net462</TargetFrameworks>
   </PropertyGroup>
-
+  
   <PropertyGroup>
     <RootNamespace>MassTransit</RootNamespace>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <PackageId>MassTransit.NHibernate</PackageId>
-    <Title>MassTransit.NHibernate</Title>
-    <PackageTags>MassTransit;NHibernate</PackageTags>
-    <Description>MassTransit NHibernate persistence support; $(Description)</Description>
-  </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Iesi.Collections" />

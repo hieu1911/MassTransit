@@ -19,6 +19,7 @@ namespace MassTransit.Configuration
         readonly IBusRegistrationConfigurator _configurator;
         IsolationLevel _isolationLevel;
         bool _registerInboxCleanupService;
+        bool _useMultitenantDatabases;
 
         public NHibernateOutboxConfigurator(IBusRegistrationConfigurator configurator)
         {
@@ -26,6 +27,7 @@ namespace MassTransit.Configuration
 
             _isolationLevel = IsolationLevel.RepeatableRead;
             _registerInboxCleanupService = true;
+            _useMultitenantDatabases = false;
         }
 
         public TimeSpan DuplicateDetectionWindow { get; set; } = TimeSpan.FromMinutes(30);
@@ -33,6 +35,11 @@ namespace MassTransit.Configuration
         public IsolationLevel IsolationLevel
         {
             set => _isolationLevel = value;
+        }
+
+        public bool UseMultitenantDatabases
+        {
+            set => _useMultitenantDatabases = value;
         }
 
         public TimeSpan QueryDelay { get; set; } = TimeSpan.FromSeconds(10);
@@ -61,6 +68,7 @@ namespace MassTransit.Configuration
             _configurator.AddOptions<NHibernateOutboxOptions>().Configure(options =>
             {
                 options.IsolationLevel = _isolationLevel;
+                options.UseMultitenantDatabases = _useMultitenantDatabases;
             });
 
             if (_registerInboxCleanupService)

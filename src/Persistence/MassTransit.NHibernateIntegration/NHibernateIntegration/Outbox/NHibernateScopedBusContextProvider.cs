@@ -1,8 +1,9 @@
 #nullable enable
 namespace MassTransit.NHibernateIntegration.Outbox
 {
-    using System;
     using DependencyInjection;
+    using System;
+    using Microsoft.Extensions.Options;
 
 
     public class NHibernateScopedBusContextProvider<TBus> :
@@ -12,12 +13,13 @@ namespace MassTransit.NHibernateIntegration.Outbox
     {
         public NHibernateScopedBusContextProvider(TBus bus, INHibernateTenantSessionFactoryProvider tenantSessionFactoryProvider,
             ITenantBusOutboxNotification notification,
-            Bind<TBus, IClientFactory> clientFactory, ScopedConsumeContextProvider consumeContextProvider, IServiceProvider provider)
+            Bind<TBus, IClientFactory> clientFactory, ScopedConsumeContextProvider consumeContextProvider, IServiceProvider provider,
+            IOptions<NHibernateOutboxOptions> outboxOptions)
         {
             if (consumeContextProvider.HasContext)
                 Context = new ConsumeContextScopedBusContext(consumeContextProvider.GetContext(), clientFactory.Value);
             else
-                Context = new NHibernateScopedBusContext<TBus>(bus, tenantSessionFactoryProvider, notification, clientFactory.Value, provider);
+                Context = new NHibernateScopedBusContext<TBus>(bus, tenantSessionFactoryProvider, notification, clientFactory.Value, provider, outboxOptions);
         }
 
         public void Dispose()

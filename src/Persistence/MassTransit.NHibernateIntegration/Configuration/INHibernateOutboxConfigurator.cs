@@ -16,6 +16,12 @@ namespace MassTransit
         IsolationLevel IsolationLevel { set; }
 
         /// <summary>
+        /// When true (default), resolve and deliver outbox messages per tenant partition / multiple databases.
+        /// When false, use one database via <see cref="NHibernateIntegration.Outbox.INHibernateTenantSessionFactoryProvider.GetSessionFactory" /> (Entity Framework Core–style single DbContext database).
+        /// </summary>
+        bool UseMultitenantDatabases { set; }
+
+        /// <summary>
         /// The delay between queries once messages are no longer available. When a query returns messages, subsequent queries
         /// are performed until no messages are returned after which the QueryDelay is used.
         /// </summary>

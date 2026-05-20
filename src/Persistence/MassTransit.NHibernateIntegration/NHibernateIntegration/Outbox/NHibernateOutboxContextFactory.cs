@@ -21,6 +21,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
         readonly IsolationLevel _isolationLevel;
         readonly IServiceProvider _provider;
         readonly INHibernateTenantSessionFactoryProvider _tenantSessionFactoryProvider;
+        readonly bool _useMultitenantDatabases;
 
         public NHibernateOutboxContextFactory(INHibernateTenantSessionFactoryProvider tenantSessionFactoryProvider, IServiceProvider provider,
             IOptions<NHibernateOutboxOptions> options)
@@ -28,6 +29,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
             _tenantSessionFactoryProvider = tenantSessionFactoryProvider;
             _provider = provider;
             _isolationLevel = options.Value.IsolationLevel;
+            _useMultitenantDatabases = options.Value.UseMultitenantDatabases;
         }
 
         public async Task Send<T>(ConsumeContext<T> context, OutboxConsumeOptions options, IPipe<OutboxConsumeContext<T>> next)
@@ -41,7 +43,9 @@ namespace MassTransit.NHibernateIntegration.Outbox
 
                 var timer = Stopwatch.StartNew();
 
-                var sessionFactory = _tenantSessionFactoryProvider.GetSessionFactory(_tenantSessionFactoryProvider.PartitionKey);
+                var sessionFactory = _useMultitenantDatabases
+                   ? _tenantSessionFactoryProvider.GetSessionFactory(_tenantSessionFactoryProvider.PartitionKey)
+                   : _tenantSessionFactoryProvider.GetSessionFactory();
                 using var session = sessionFactory.OpenSession();
                 using var transaction = session.BeginTransaction(_isolationLevel);
 

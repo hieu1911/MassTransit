@@ -1,11 +1,10 @@
 #nullable enable
 namespace MassTransit.Configuration
 {
-    using System;
     using DependencyInjection;
     using Microsoft.Extensions.DependencyInjection;
-    using NHibernateIntegration;
     using NHibernateIntegration.Outbox;
+    using System;
 
 
     public class NHibernateBusOutboxConfigurator :
@@ -37,8 +36,6 @@ namespace MassTransit.Configuration
             configure?.Invoke(this);
 
             _configurator.ReplaceScoped<IScopedBusContextProvider<IBus>, NHibernateScopedBusContextProvider<IBus>>();
-            //_configurator.AddScoped<INHibernateTenantSessionFactoryProvider, DefaultNHibernateTenantSessionFactoryProvider>();
-            //_configurator.AddSingleton<INHibernateTenantDatabaseFactory, DefaultNHibernateTenantDatabaseFactory>();
             _configurator.AddSingleton<ITenantBusOutboxNotification, TenantBusOutboxNotification>();
 
             if (_registerOutboxDeliveryService)

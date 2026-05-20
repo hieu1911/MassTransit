@@ -1,14 +1,15 @@
 #nullable enable
 namespace MassTransit.NHibernateIntegration.Outbox
 {
-    using System;
-    using System.Threading.Tasks;
     using Clients;
     using DependencyInjection;
+    using Microsoft.Extensions.Options;
     using Middleware;
     using Middleware.Outbox;
     using NHibernate;
     using Serialization;
+    using System;
+    using System.Threading.Tasks;
     using Transports;
 
 
@@ -18,11 +19,14 @@ namespace MassTransit.NHibernateIntegration.Outbox
         IDisposable
         where TBus : class, IBus
     {
+        const string SingleDatabaseOutboxPartitionKey = "default";
+
         readonly TBus _bus;
         readonly IClientFactory _clientFactory;
         readonly ITenantBusOutboxNotification _notification;
         readonly IServiceProvider _provider;
         readonly INHibernateTenantSessionFactoryProvider _tenantSessionFactoryProvider;
+        readonly bool _useMultitenantDatabases;
 
         bool _ownsSession;
         bool _ownsTransaction;
@@ -36,13 +40,14 @@ namespace MassTransit.NHibernateIntegration.Outbox
 
         public NHibernateScopedBusContext(TBus bus, INHibernateTenantSessionFactoryProvider tenantSessionFactoryProvider,
             ITenantBusOutboxNotification notification, IClientFactory clientFactory,
-            IServiceProvider provider)
+            IServiceProvider provider, IOptions<NHibernateOutboxOptions> outboxOptions)
         {
             _bus = bus;
             _tenantSessionFactoryProvider = tenantSessionFactoryProvider;
             _notification = notification;
             _clientFactory = clientFactory;
             _provider = provider;
+            _useMultitenantDatabases = outboxOptions.Value.UseMultitenantDatabases;
         }
 
         public void Dispose()
@@ -53,7 +58,7 @@ namespace MassTransit.NHibernateIntegration.Outbox
                     _transaction.Commit();
 
                 if (_outboxStateCreated && ShouldNotifyDelivery())
-                    _notification.Delivered(_tenantSessionFactoryProvider.PartitionKey);
+                    _notification.Delivered(OutboxNotificationPartitionKey);
             }
             finally
             {
@@ -93,9 +98,11 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 return;
 
             if (_transaction?.WasCommitted ?? false)
-                _notification.Delivered(_tenantSessionFactoryProvider.PartitionKey);
+                _notification.Delivered(OutboxNotificationPartitionKey);
 
-            var sessionFactory = _tenantSessionFactoryProvider.GetSessionFactory(_tenantSessionFactoryProvider.PartitionKey);
+            var sessionFactory = _useMultitenantDatabases
+               ? _tenantSessionFactoryProvider.GetSessionFactory(_tenantSessionFactoryProvider.PartitionKey)
+               : _tenantSessionFactoryProvider.GetSessionFactory();
             ISession? ambientSession = null;
             try
             {
@@ -146,6 +153,9 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 && _transaction.IsActive
                 && (_transaction.WasCommitted == false);
         }
+
+        string OutboxNotificationPartitionKey =>
+            _useMultitenantDatabases ? _tenantSessionFactoryProvider.PartitionKey : SingleDatabaseOutboxPartitionKey;
 
         bool ShouldNotifyDelivery()
         {
