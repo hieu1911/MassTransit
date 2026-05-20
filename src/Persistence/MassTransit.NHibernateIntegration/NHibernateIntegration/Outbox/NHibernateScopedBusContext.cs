@@ -117,6 +117,22 @@ namespace MassTransit.NHibernateIntegration.Outbox
 
             if (ambientSession == null)
             {
+                try
+                {
+                    // Try to get an ambient session from the provider, if available. This allows sharing an ambient session across scopes without relying on NHibernate's current session context.
+                    var ambientProvider = _provider.GetService(typeof(INHibernateAmbientSessionProvider)) as INHibernateAmbientSessionProvider;
+                    var borrowedSession = ambientProvider?.TryGetSession();
+                    if (borrowedSession?.IsOpen == true)
+                        ambientSession = borrowedSession;
+                }
+                catch
+                {
+                    // No ambient session provider or failed to get session from provider.
+                }
+            }
+
+            if (ambientSession == null)
+            {
                 var scopedSession = _provider.GetService(typeof(ISession)) as ISession;
                 if (scopedSession?.IsOpen == true)
                     ambientSession = scopedSession;
