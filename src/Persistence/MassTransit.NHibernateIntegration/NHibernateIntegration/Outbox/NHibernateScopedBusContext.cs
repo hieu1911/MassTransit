@@ -103,27 +103,26 @@ namespace MassTransit.NHibernateIntegration.Outbox
             var sessionFactory = _useMultitenantDatabases
                ? _tenantSessionFactoryProvider.GetSessionFactory(_tenantSessionFactoryProvider.PartitionKey)
                : _tenantSessionFactoryProvider.GetSessionFactory();
-            ISession? ambientSession = null;
+            ISession? session = null;
             try
             {
                 // Prefer NHibernate current session to avoid capturing an externally-owned ISession
                 // from DI scope that may dispose it after publish/send scope exits.
-                ambientSession = sessionFactory.GetCurrentSession();
+                session = sessionFactory.GetCurrentSession();
             }
             catch (HibernateException)
             {
                 // No current session is bound for this context.
             }
 
-            if (ambientSession == null)
+            if (session == null)
             {
                 try
                 {
-                    // Try to get an ambient session from the provider, if available. This allows sharing an ambient session across scopes without relying on NHibernate's current session context.
-                    var ambientProvider = _provider.GetService(typeof(INHibernateAmbientSessionProvider)) as INHibernateAmbientSessionProvider;
-                    var borrowedSession = ambientProvider?.TryGetSession();
-                    if (borrowedSession?.IsOpen == true)
-                        ambientSession = borrowedSession;
+                    // Fall back to session provider if available, which may be used to select a tenant session based on the current context.
+                    session = _useMultitenantDatabases
+                        ? _tenantSessionFactoryProvider.GetSession(_tenantSessionFactoryProvider.PartitionKey)
+                        : _tenantSessionFactoryProvider.GetSession();
                 }
                 catch
                 {
@@ -131,15 +130,15 @@ namespace MassTransit.NHibernateIntegration.Outbox
                 }
             }
 
-            if (ambientSession == null)
+            if (session == null)
             {
                 var scopedSession = _provider.GetService(typeof(ISession)) as ISession;
                 if (scopedSession?.IsOpen == true)
-                    ambientSession = scopedSession;
+                    session = scopedSession;
             }
 
-            _session = ambientSession ?? sessionFactory.OpenSession();
-            _ownsSession = ambientSession == null;
+            _session = session ?? sessionFactory.OpenSession();
+            _ownsSession = session == null;
 
             _transaction = _session.GetCurrentTransaction();
             if (_transaction == null || _transaction.IsActive == false)
